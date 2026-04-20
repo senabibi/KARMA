@@ -1,5 +1,13 @@
-# SENTINEL-8004
-### Autonomous Self-Correcting Trading Agent
+<div align="center">
+  <img src="logos/gitlab-ci.png" height="35"/> &nbsp;
+  <img src="logos/Sony_AI.png" height="35"/> &nbsp;
+  <img src="logos/Antrophic.jpg" height="35"/> &nbsp;
+  <img src="logos/openai.jpg" height="35"/> &nbsp;
+  <img src="logos/flask.webp" height="35"/>
+</div>
+
+# KARMA
+### Kraken & Aerodrome Reactive Memory Agent
 
 > A multi-agent, self-optimizing trading system competing across **both hackathon tracks simultaneously**: Kraken CLI (CeFi execution) + ERC-8004 / DeFi Track (Surge on-chain trust layer) + Aerodrome Finance (on-chain liquidity execution on Base).
 
@@ -10,8 +18,30 @@
 
 ---
 
+## 📖 The Story: Why We Built KARMA
+
+*Imagine having a Wall Street expert who manages your investments, never sleeps, and instantly learns from their mistakes.*
+
+That is **KARMA**: a hyper-intelligent, 24/7 trading assistant that watches the market and executes trades on your behalf. 
+
+What sets us apart from ordinary 'auto-trading' bots?
+
+1. **Flawless Memory (Never Makes the Same Mistake Twice)**
+   Ordinary bots only look at current numbers. Our agent remembers past market crashes (like the 2022 collapses). If it senses similar danger, it won't risk your funds. It recognizes the pattern and steps back.
+   
+2. **Self-Healing (Continuous Improvement)**
+   Even the best traders make mistakes, but the key is learning from them. If KARMA takes a slight loss, a secondary Auditor Agent instantly investigates: *"Why did we lose? Where did we go wrong?"* Before you even finish your morning coffee, it finds the flaw, updates its own risk parameters, and enters the next trade smarter.
+   
+3. **Ironclad Safety (Never Gambles Your Money)**
+   AI can sometimes hallucinate—we know that. That's why we've wrapped the agent in impenetrable, deterministic safety rules. No matter how profitable the AI thinks an opportunity is, it can never bypass our hardcoded "daily loss limits" or "balance protection". Your vault is always secure.
+
+**In short:** We are offering a cold-blooded, highly mnemonic, strictly rule-following digital fund manager that gets smarter every day. Let it manage the market while you enjoy life.
+
+---
+
 ## Table of Contents
 
+- [The Story: Why We Built KARMA](#-the-story-why-we-built-karma)
 - [Overview](#overview)
 - [What's Built & Working](#whats-built--working)
 - [Architecture: The Triple-Helix Logic](#architecture-the-triple-helix-logic)
@@ -35,13 +65,13 @@
 
 ## Overview
 
-SENTINEL-8004 is a multi-agent, dual-track trading system built around three core principles:
+KARMA is a multi-agent, dual-track trading system built around three core principles:
 
-1. **Memory** — Remembers past market crises and its own trade history via a RAG layer seeded with real Kraken historical data (2022–2025). Before its first live trade, the agent has already "experienced" the LUNA collapse, FTX crash, 2024 halving correction, and the August 2024 yen carry trade flash crash.
+1. **Memory** Remembers past market crises and its own trade history via a RAG layer seeded with real Kraken historical data (2022–2025). Before its first live trade, the agent has already "experienced" the LUNA collapse, FTX crash, 2024 halving correction, and the August 2024 yen carry trade flash crash.
 
-2. **Safety** — Hard, deterministic risk rules run independently of any LLM, enforced both in Python and on-chain via the Surge Risk Router. The Risk Manager checks 8 conditions on every trade: confidence threshold, pair whitelist, balance floor, daily loss limit, trade frequency, position size, leverage, and drawdown.
+2. **Safety**  Hard, deterministic risk rules run independently of any LLM, enforced both in Python and on-chain via the Surge Risk Router. The Risk Manager checks 8 conditions on every trade: confidence threshold, pair whitelist, balance floor, daily loss limit, trade frequency, position size, leverage, and drawdown.
 
-3. **Self-Improvement** — After every trade, the Auditor Agent (Groq/llama) performs root-cause analysis and autonomously updates `config/risk_policy.yaml` within pre-defined safety bounds. Every optimization is signed on-chain.
+3. **Self-Improvement** After every trade, the Auditor Agent (Groq/llama) performs root-cause analysis and autonomously updates `config/risk_policy.yaml` within pre-defined safety bounds. Every optimization is signed on-chain.
 
 The agent operates across two execution environments in parallel:
 - **CeFi (Kraken CLI):** Spot and derivatives trading via Kraken's AI-native Rust binary
@@ -153,7 +183,7 @@ All trust signals, agent identity, reputation, and validation artifacts are anch
 ## Directory Structure
 
 ```
-sentinel-8004/
+karma/
 │
 ├── config/
 │   ├── risk_policy.yaml           # Hard limits — auto-updated by Auditor
@@ -525,8 +555,8 @@ Python `risk_manager.py` pre-validates all rules locally before constructing the
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/your-org/sentinel-8004.git
-cd sentinel-8004
+git clone https://github.com/your-org/karma.git
+cd karma
 pip install openai pydantic pyyaml python-dotenv chromadb \
             pysqlite3-binary sentence-transformers pandas numpy
 ```
@@ -615,7 +645,7 @@ python -m src.core.orchestrator --mode live
 ## Division of Work
 
 ```
-SENTINEL-8004
+KARMA
      │
      ├── Agent Layer (Nursena) ← THIS REPO — COMPLETE
      │     ├── Strategy Agent (Groq + RAG + indicators)
@@ -728,4 +758,4 @@ The `ExecutionResult` must return: `success, trade_id, executed_price, executed_
 
 ## Disclaimer
 
-SENTINEL-8004 is experimental software built for a hackathon. It interacts with live financial markets and blockchain networks. Use paper trading mode and testnet extensively before deploying real capital. The authors accept no responsibility for financial losses.
+KARMA is experimental software built for a hackathon. It interacts with live financial markets and blockchain networks. Use paper trading mode and testnet extensively before deploying real capital. The authors accept no responsibility for financial losses.
