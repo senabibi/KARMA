@@ -86,14 +86,14 @@ All trust signals, agent identity, reputation, and validation artifacts are anch
 
 | Component | Who | Description |
 |-----------|-----|-------------|
-| `src/core/kraken_worker.py` | Teammate | Kraken CLI subprocess wrapper |
-| `src/core/aerodrome_worker.py` | Teammate | Aerodrome web3.py + Risk Router |
-| `src/onchain/signing.py` | Teammate | EIP-712 typed data signing |
-| `src/onchain/identity.py` | Teammate | ERC-8004 NFT mint |
-| `src/onchain/reputation.py` | Teammate | Reputation Registry posts |
-| `src/onchain/validator.py` | Teammate | Validation Artifact posts |
-| `src/onchain/risk_router.py` | Teammate | Surge Risk Router submission |
-| `src/onchain/wallet.py` | Teammate | EIP-1271 smart contract wallet |
+| `src/core/kraken_worker.py` | ✅ Done | Kraken CLI subprocess wrapper — full market data + order execution |
+| `src/core/aerodrome_worker.py` | Stub | Aerodrome web3.py + Risk Router (DeFi layer) |
+| `src/onchain/signing.py` | Stub | EIP-712 typed data signing |
+| `src/onchain/identity.py` | Stub | ERC-8004 NFT mint |
+| `src/onchain/reputation.py` | Stub | Reputation Registry posts |
+| `src/onchain/validator.py` | Stub | Validation Artifact posts |
+| `src/onchain/risk_router.py` | Stub | Surge Risk Router submission |
+| `src/onchain/wallet.py` | Stub | EIP-1271 smart contract wallet |
 
 ---
 
@@ -628,9 +628,9 @@ SENTINEL-8004
      │     ├── Simulator (real history + SL/TP + self-correction)
      │     └── Orchestrator (Observe→Gate→Execute→Audit loop)
      │
-     └── Execution + Onchain Layer (Teammate) ← TO IMPLEMENT
-           ├── KrakenWorker  — implement src/core/kraken_worker.py
-           ├── AerodromeWorker — implement src/core/aerodrome_worker.py
+     └── Execution + Onchain Layer
+           ├── KrakenWorker  ✅ — src/core/kraken_worker.py (Kraken CLI subprocess)
+           ├── AerodromeWorker — stub: src/core/aerodrome_worker.py
            └── Onchain layer — implement src/onchain/*.py
                  ├── signing.py   (EIP-712 — types already defined)
                  ├── identity.py  (ERC-8004 NFT mint)
@@ -703,10 +703,10 @@ The `ExecutionResult` must return: `success, trade_id, executed_price, executed_
 - [x] Onchain stubs — identity, reputation, validator, signing, wallet, risk_router
 - [x] EIP-712 type definitions (ready for teammate's implementation)
 - [x] Red team adversarial testing suite (13 attack vectors)
-- [ ] KrakenWorker — real Kraken CLI subprocess calls (teammate)
-- [ ] AerodromeWorker — web3.py + Risk Router integration (teammate)
-- [ ] EIP-712 signing implementation (teammate)
-- [ ] ERC-8004 on-chain registration (teammate)
+- [x] KrakenWorker — real Kraken CLI subprocess calls (market data + order execution)
+- [ ] AerodromeWorker — web3.py + Risk Router integration (DeFi layer stub)
+- [ ] EIP-712 signing implementation (onchain stub)
+- [ ] ERC-8004 on-chain registration (onchain stub)
 - [ ] Real-time monitoring dashboard
 - [ ] Subgraph / off-chain indexer for agent activity
 - [ ] TEE-backed attestations for verifiable execution proofs

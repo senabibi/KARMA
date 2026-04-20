@@ -10,3 +10,6 @@ data/historical/
 data/synthetic/
 .venv/
 venv/
+data/processed/
+data/raw/
+*.code-workspace
