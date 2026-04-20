@@ -130,55 +130,219 @@ All trust signals, agent identity, reputation, and validation artifacts are anch
 
 ---
 
-## Architecture: The Triple-Helix Logic
+## Architecture
 
+### 1 — Trading Cycle (6-Step Loop)
+
+```mermaid
+flowchart TD
+    START([Orchestrator\norchestrator.py]) --> W
+
+    subgraph OBS["① OBSERVE"]
+        W["KrakenWorker / AerodromeWorker\nget_market_data · get_portfolio"]
+        P["indicators.py\nRSI · EMA20/50/200 · ATR · VZ · BB\n→ Regime Label"]
+        W --> P
+    end
+
+    P --> RQ
+
+    subgraph MEM["🧠 MEMORY — RAG Query"]
+        RQ["retriever.py\nall-MiniLM-L6-v2 embedding\nquery similar market conditions"]
+        DB1[(ChromaDB\nmarket_cycles\n2 918 docs)]
+        DB2[(ChromaDB\nlessons\n380 docs)]
+        RQ --> DB1 & DB2
+        DB1 & DB2 --> CTX["Top-K historical context\nreturned to agent"]
+    end
+
+    CTX --> SA
+
+    subgraph HYP["② HYPOTHESIZE"]
+        SA["StrategyAgent  strategy_agent.py\nGroq llama-3.3-70b\nindicators + RAG context\n→ TradeSignal\n  direction · size_pct · confidence · reasoning"]
+    end
+
+    SA --> RM
+
+    subgraph GATE["③ GATE  risk_manager.py  no LLM"]
+        RM{"8 Deterministic Checks\n① confidence ≥ threshold\n② pair in whitelist\n③ balance ≥ floor\n④ daily loss < limit\n⑤ trade count < max\n⑥ interval since last trade\n⑦ size ≤ max cap\n⑧ size ≥ min cap"}
+        RM -->|all pass| APR["APPROVE\nEIP-712 TradeIntent\nconstructed + signed"]
+        RM -->|any fail| VTO["VETO\nlog reason\nskip trade"]
+    end
+
+    VTO --> NEXT1([next cycle])
+    APR --> EX
+
+    subgraph EXEC["④ EXECUTE"]
+        EX{Execution Layer}
+        EX -->|CeFi| KW["KrakenWorker\nkraken_worker.py\nkraken order add\n--sandbox in paper mode"]
+        EX -->|DeFi| AW["AerodromeWorker\naerodrome_worker.py\nSurge Risk Router → Base L2"]
+    end
+
+    KW --> CT
+    AW --> CT
+
+    subgraph AUDIT["⑤ AUDIT + SELF-CORRECT  auditor_agent.py"]
+        CT["ClosedTrade\nentry · exit · PnL"]
+        AU["AuditorAgent\nGroq llama-3.3-70b\nroot-cause analysis"]
+        CT --> AU
+        AU -->|"config_update (within param_bounds)"| POL["risk_policy.yaml\nauto-updated"]
+        AU -->|new lesson| RW[(ChromaDB\nlessons\nnew entry)]
+    end
+
+    AU --> OC
+
+    subgraph ONCHAIN["⑥ ON-CHAIN  ERC-8004"]
+        OC["reputation.py\npost PnL delta\n→ Reputation Registry"]
+        OC2["validator.py\npost audit artifact\n→ Validation Registry"]
+        OC --> OC2
+    end
+
+    OC2 --> NEXT2([next cycle])
+
+    style OBS  fill:#1a1a2e,stroke:#4a9eff,color:#e0e0ff
+    style MEM  fill:#0d2137,stroke:#7b68ee,color:#e0e0ff
+    style HYP  fill:#1a2e1a,stroke:#4aff88,color:#e0e0ff
+    style GATE fill:#2e1a1a,stroke:#ff6b6b,color:#e0e0ff
+    style EXEC fill:#1a2e2e,stroke:#4affff,color:#e0e0ff
+    style AUDIT fill:#2e2a1a,stroke:#ffb347,color:#e0e0ff
+    style ONCHAIN fill:#1e1a2e,stroke:#da70d6,color:#e0e0ff
 ```
-                    ┌──────────────────────────────────┐
-                    │           ORCHESTRATOR            │
-                    │         (orchestrator.py)         │
-                    └────┬─────────────┬────────────────┘
-                         │             │
-          ┌──────────────▼──┐   ┌──────▼─────────────────┐
-          │  MEMORY LAYER   │   │     SAFETY LAYER        │
-          │  (RAG Engine)   │   │  (Symbolic + On-Chain)  │
-          │                 │   │                         │
-          │ 2,918 market    │   │ - 8 deterministic rules │
-          │ cycle chunks    │   │ - Surge Risk Router     │
-          │ 380 lessons     │   │ - EIP-712 intent sign   │
-          │ (real crises)   │   └──────────┬──────────────┘
-          └────────┬────────┘              │
-                   └──────────┬────────────┘
-                              │
-                 ┌────────────▼──────────────┐
-                 │      STRATEGY AGENT       │
-                 │ Groq llama-3.3-70b +      │
-                 │ RSI / EMA / Volume / RAG  │
-                 └────────────┬──────────────┘
-                              │
-                 ┌────────────▼──────────────┐
-                 │       RISK MANAGER        │
-                 │     APPROVE or VETO       │
-                 └────────┬──────────┬───────┘
-                          │          │
-          ┌───────────────▼──┐  ┌────▼────────────────────┐
-          │  CeFi EXECUTION  │  │   DeFi EXECUTION         │
-          │  Kraken CLI      │  │   Aerodrome Finance      │
-          │  (MCP Server)    │  │   (Base L2, Risk Router) │
-          └────────┬─────────┘  └─────────────┬────────────┘
-                   │                           │
-                   └─────────────┬─────────────┘
-                                 │
-                 ┌───────────────▼──────────────┐
-                 │        AUDITOR AGENT         │
-                 │  Groq llama-3.3-70b          │
-                 │  PnL root-cause → YAML update│
-                 └───────────────┬──────────────┘
-                                 │
-                 ┌───────────────▼──────────────┐
-                 │        ERC-8004 LAYER        │
-                 │  Identity · Reputation       │
-                 │  Validation · On-Chain Log   │
-                 └──────────────────────────────┘
+
+---
+
+### 2 — Full Module Map
+
+```mermaid
+flowchart LR
+    subgraph DATA["Data Sources"]
+        CSV["Kraken OHLCV CSVs\nXBTUSD_60.csv\nETHUSD_60.csv"]
+        LIVE["Live Market\nKraken API\nAerodrome Pools"]
+    end
+
+    subgraph PROC["Processing  src/processing/"]
+        CL["cleaner.py\nCSV loader\nevent detection\ncontext windows"]
+        IND["indicators.py\nRSI EMA ATR BB VZ\nRegime classifier"]
+        EMB["embedder.py\nOHLCV → narrative\nparagraphs"]
+        CL --> IND --> EMB
+    end
+
+    subgraph RAG["Memory  src/rag/"]
+        VS["vector_store.py\nChromaDB wrapper\nsqlite3 patch for 3.9"]
+        RET["retriever.py\nsentence-transformers\nall-MiniLM-L6-v2\n384-dim local embeddings"]
+        VS <--> RET
+    end
+
+    subgraph AGENTS["Agents  src/agents/"]
+        SA["strategy_agent.py\nGroq llama-3.3-70b\n+ RAG + indicators\n→ TradeSignal"]
+        RM["risk_manager.py\n8 deterministic rules\nlive-reloads YAML\nno LLM"]
+        AU["auditor_agent.py\nGroq llama-3.3-70b\npost-trade analysis\n→ YAML update + RAG"]
+    end
+
+    subgraph CORE["Core  src/core/"]
+        ORC["orchestrator.py\nmain event loop"]
+        BW["base_worker.py\nAbstractBaseClass"]
+        KRW["kraken_worker.py\nKraken CLI subprocess\nget_market_data\nexecute_order"]
+        ADW["aerodrome_worker.py\nweb3.py stub\nSurge Risk Router"]
+        BW --> KRW & ADW
+    end
+
+    subgraph ONCHAIN["On-Chain  src/onchain/"]
+        ID["identity.py\nERC-8004 NFT mint"]
+        REP["reputation.py\nReputation Registry"]
+        VAL["validator.py\nValidation Registry"]
+        SGN["signing.py\nEIP-712 typed data"]
+        WLT["wallet.py\nEIP-1271 smart wallet"]
+        RR["risk_router.py\nSurge Risk Router"]
+    end
+
+    subgraph CFG["Config  config/"]
+        POL["risk_policy.yaml\nauto-updated by Auditor"]
+        MR["model_routing.yaml"]
+        AR["agent_registration.json"]
+    end
+
+    subgraph LLM["LLM  src/llm_client.py"]
+        GRQ["Groq API\nllama-3.3-70b-versatile\nllama-3.1-8b-instant\nmulti-key rotation"]
+    end
+
+    CSV --> CL
+    LIVE --> KRW & ADW
+    EMB --> VS
+    IND --> SA & AU
+    RET --> SA & AU
+    SA --> ORC
+    RM --> ORC
+    AU --> ORC
+    ORC --> KRW & ADW
+    KRW & ADW --> ORC
+    ORC --> REP & VAL
+    AU --> POL
+    GRQ --> SA & AU
+    RM --> POL
+    SGN --> KRW & ADW
+
+    style DATA fill:#0d1117,stroke:#58a6ff,color:#cdd9e5
+    style PROC fill:#0d1117,stroke:#3fb950,color:#cdd9e5
+    style RAG  fill:#0d1117,stroke:#bc8cff,color:#cdd9e5
+    style AGENTS fill:#0d1117,stroke:#f78166,color:#cdd9e5
+    style CORE fill:#0d1117,stroke:#ffa657,color:#cdd9e5
+    style ONCHAIN fill:#0d1117,stroke:#da70d6,color:#cdd9e5
+    style CFG fill:#0d1117,stroke:#79c0ff,color:#cdd9e5
+    style LLM fill:#0d1117,stroke:#56d364,color:#cdd9e5
+```
+
+---
+
+### 3 — RAG Bootstrap Pipeline
+
+```mermaid
+flowchart LR
+    subgraph INPUT["Input"]
+        XBTUSD["XBTUSD_60.csv\n96 381 candles\n2013–2025"]
+        ETHUSD["ETHUSD_60.csv\n87 690 candles\n2015–2025"]
+    end
+
+    subgraph CLEAN["cleaner.py"]
+        LOAD["load_ohlcv_df()\nauto-detect header\nparse timestamps"]
+        EVT["detect_significant_events()\nprice_drop · price_spike\nvolume_sell/buy_spike\nrsi_overbought/oversold"]
+        WIN["get_context_window()\n48 candles before event\n+ 24 candles outcome"]
+        LOAD --> EVT --> WIN
+    end
+
+    subgraph INDIC["indicators.py"]
+        IND["add_indicators()\nRSI · EMA20/50/200\nATR · VZ · BB\n→ regime label"]
+    end
+
+    subgraph EMBED["embedder.py"]
+        NARR["OHLCV → narrative\nparagraphs\nfor market_cycles\ncollection"]
+    end
+
+    subgraph LLM["Groq llama-3.1-8b-instant\n500k tokens/day free tier"]
+        PROMPT["_build_lesson_prompt()\nevent candle context\n+ 24h outcome\n→ What warning signs?\n→ Which YAML param to adjust?"]
+        LESSON["lesson text\n380 generated\nacross 4 crisis events"]
+        PROMPT --> LESSON
+    end
+
+    subgraph RAG["retriever.py + vector_store.py"]
+        SBERT["all-MiniLM-L6-v2\n384-dim embeddings\nruns locally — no API key"]
+        CHROMA["ChromaDB\nPersisted locally\ndata/chroma_db/"]
+        MC["market_cycles\n2 918 docs"]
+        LS["lessons\n380 docs"]
+        SBERT --> CHROMA
+        CHROMA --> MC & LS
+    end
+
+    INPUT --> LOAD
+    LOAD --> IND
+    IND --> NARR --> SBERT
+    WIN --> PROMPT
+    LESSON --> SBERT
+
+    style INPUT fill:#0d1117,stroke:#58a6ff,color:#cdd9e5
+    style CLEAN fill:#0d1117,stroke:#3fb950,color:#cdd9e5
+    style INDIC fill:#0d1117,stroke:#ffa657,color:#cdd9e5
+    style EMBED fill:#0d1117,stroke:#79c0ff,color:#cdd9e5
+    style LLM   fill:#0d1117,stroke:#f78166,color:#cdd9e5
+    style RAG   fill:#0d1117,stroke:#bc8cff,color:#cdd9e5
 ```
 
 ---
@@ -200,8 +364,8 @@ karma/
 │   ├── core/
 │   │   ├── orchestrator.py        # Main loop: Observe → Gate → Execute → Audit
 │   │   ├── base_worker.py         # Abstract interface for execution workers
-│   │   ├── kraken_worker.py       # STUB — teammate implements Kraken CLI calls
-│   │   └── aerodrome_worker.py    # STUB — teammate implements web3.py + Risk Router
+│   │   ├── kraken_worker.py       # Kraken CLI subprocess — market data + order execution
+│   │   └── aerodrome_worker.py    # STUB — web3.py + Surge Risk Router (DeFi layer)
 │   │
 │   ├── agents/
 │   │   ├── strategy_agent.py      # Trade signals via RAG + indicators + Groq
